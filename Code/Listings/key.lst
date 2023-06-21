@@ -1,0 +1,162 @@
+C51 COMPILER V9.60.0.0   KEY                                                               04/17/2023 16:56:35 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN ..\Objects\key.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE ..\Modules\key.c OPTIMIZE(8,SPEED) BROWSE INCDIR(..\System;..\Modules;..
+                    -\User) DEBUG OBJECTEXTEND PRINT(..\Listings\key.lst) OBJECT(..\Objects\key.obj)
+
+line level    source
+
+   1          #include "key.h"
+   2          #include "power.h"
+   3          #include "pwm.h"
+   4          
+   5          static u16 Temp;
+   6          
+   7          static u8 PressFlag;
+   8          static u8 LongPressDelayer;
+   9          static u8 LongPressFlag;
+  10          static u8 ShortPressFlag;
+  11          
+  12          static u8 LightType;
+  13          
+  14          
+  15          void ChangeIntensity(void) {
+  16   1          switch (LightType) {
+  17   2              case 1: PWM0_Value += PWM_STEP;
+  18   2                      if (PWM0_Value > PWM_TOTAL) PWM0_Value = PWM_STEP;
+  19   2                      break;
+  20   2              case 2: PWM1_Value += PWM_STEP;
+  21   2                      if (PWM1_Value > PWM_TOTAL) PWM1_Value = PWM_STEP;
+  22   2                      break;
+  23   2              case 3: PWM0_Value += PWM_STEP;
+  24   2                      if (PWM0_Value > PWM_TOTAL) PWM0_Value = PWM_STEP;
+  25   2                      PWM1_Value = PWM0_Value;
+  26   2                      break;
+  27   2              default: break;
+  28   2          }
+  29   1          
+  30   1      }
+  31          
+  32          void SwitchType(void) {
+  33   1          LightType++;
+  34   1          if (LightType >= 4) {
+  35   2              LightType = 0;
+  36   2          }
+  37   1          switch (LightType) {
+  38   2              case 0: PWM0_Value = 0;
+  39   2                      PWM1_Value = 0;
+  40   2                      break;
+  41   2              case 1: if (PWM0_Value == 0) PWM0_Value = PWM_STEP;
+  42   2                      break;
+  43   2              case 2: if (PWM1_Value == 0) PWM1_Value = PWM_STEP;
+  44   2                      break;
+  45   2              case 3: if (PWM0_Value == 0) PWM0_Value = PWM_STEP;
+  46   2                      if (PWM1_Value == 0) PWM1_Value = PWM_STEP;
+  47   2                      if (PWM0_Value < PWM1_Value) PWM0_Value = PWM1_Value;
+  48   2                      else PWM1_Value = PWM0_Value;
+  49   2                      break;
+  50   2              default: break;
+  51   2          }
+  52   1      }
+  53          
+  54          void Key_Init(void) {
+C51 COMPILER V9.60.0.0   KEY                                                               04/17/2023 16:56:35 PAGE 2   
+
+  55   1          P5M0 &= ~(0x01 << 5);
+  56   1          P5M1 &= ~(0x01 << 5);  //PxM0与PxM1共同配置IO状态
+  57   1          Ext3_Enable();
+  58   1          PCA_Timer_Init(1000);
+  59   1      }
+  60          
+  61          void DetectKey(Press longPress, Press shortPress)
+  62          {
+  63   1          if (!P55) {
+  64   2              PressFlag = 1;
+  65   2          } else {
+  66   2              PressFlag = 0;
+  67   2              LongPressFlag = 0;
+  68   2              LongPressDelayer = 0;
+  69   2          }
+  70   1          if (PressFlag) {
+  71   2              if (!LongPressFlag) {
+  72   3                  if (LongPressDelayer > 20) {
+  73   4                      LongPressFlag = 1;
+  74   4                      ShortPressFlag = 0;
+  75   4      //                Ext3_Enable();
+  76   4                      longPress();
+  77   4                  } else {
+  78   4                      ShortPressFlag = 1;
+  79   4                  }
+  80   3              }
+  81   2          } else {
+  82   2              if (ShortPressFlag) {
+  83   3                  ShortPressFlag = 0;
+  84   3      //            Ext3_Enable();
+  85   3                  shortPress();
+  86   3              }
+  87   2          }
+  88   1      }
+  89          
+  90          void Ext3_Enable(void)
+  91          {
+  92   1          INT_CLKO |= (0x01 << 5);  //外部中断3，仅支持下降沿中断
+  93   1      }
+  94          
+  95          void Ext3_Disable(void)
+  96          {
+  97   1          INT_CLKO &= ~(0x01 << 5);  //外部中断3，仅支持下降沿中断
+  98   1      }
+  99          
+ 100          
+ 101          void PCA_Timer_Init(u16 hz)
+ 102          {
+ 103   1          CCAPM2 |= 0x49; //打开CAPPWM模块2的软件定时器中断
+ 104   1          Temp = FOSC / hz / 2; //设置中断频率
+ 105   1          CCAP2L = Temp;
+ 106   1          CCAP2H = Temp >> 8;
+ 107   1          Temp += Temp;
+ 108   1          EA = 1;
+ 109   1          CR = 1;
+ 110   1      }
+ 111          
+ 112          void PCA_Timer_Int(void) interrupt 7
+ 113          {
+ 114   1          static u16 delayer = 0;
+ 115   1          CCF2 = 0;
+ 116   1          CCAP2L = Temp;
+C51 COMPILER V9.60.0.0   KEY                                                               04/17/2023 16:56:35 PAGE 3   
+
+ 117   1          CCAP2H = Temp >> 8;
+ 118   1          Temp += Temp;
+ 119   1          if (delayer >= 5)  //该数值可以调节长按时间
+ 120   1          {
+ 121   2              delayer = 0;
+ 122   2              if (PressFlag && !LongPressFlag) LongPressDelayer++;
+ 123   2              if (LongPressDelayer > 250) LongPressDelayer = 250;
+ 124   2          }
+ 125   1          DetectKey(ChangeIntensity, SwitchType);
+ 126   1          delayer++;
+ 127   1      }
+ 128          
+ 129          void Ext3_Int(void) interrupt 11
+ 130          {
+ 131   1          PressFlag = 1;
+ 132   1      //    Ext3_Disable();
+ 133   1      }
+ 134          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    442    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      9       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

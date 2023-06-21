@@ -1,0 +1,11 @@
+"..\Objects\main.obj",
+"..\Objects\delay.obj",
+"..\Objects\uart.obj",
+"..\Objects\str.obj",
+"..\Objects\pwm.obj",
+"..\Objects\key.obj",
+"..\Objects\power.obj",
+"..\Objects\timer.obj",
+"..\Objects\eeprom.obj" 
+TO "..\Objects\Template" 
+PRINT("..\Listings\Template.m51") RAMSIZE(256) 
