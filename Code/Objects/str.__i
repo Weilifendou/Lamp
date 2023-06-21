@@ -1,1 +1,0 @@
-"..\Modules\str.c" OPTIMIZE (8,SPEED) BROWSE INCDIR(..\System;..\Modules;..\User) DEBUG OBJECTEXTEND PRINT(..\Listings\str.lst) OBJECT(..\Objects\str.obj)
